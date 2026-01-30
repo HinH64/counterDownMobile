@@ -122,17 +122,34 @@ const HomeScreen: React.FC = () => {
     transform: [{ scale: buttonScale.value }],
   }));
 
-  // Calculate progress based on time elapsed
-  const getProgress = () => {
+  // Calculate days progress (how much of the total countdown has passed)
+  const getDaysProgress = () => {
     if (!data.targetDate) return 0;
-    const now = Date.now();
-    const total = data.targetDate - now;
-    if (total <= 0) return 1;
-    // Assume countdown started 30 days before target (or use actual start date)
-    const startDate = data.targetDate - (30 * 24 * 60 * 60 * 1000);
-    const elapsed = now - startDate;
-    const totalDuration = data.targetDate - startDate;
-    return Math.min(Math.max(elapsed / totalDuration, 0), 1);
+    const timeLeft = calculateTimeLeft(data.targetDate);
+    if (timeLeft.total <= 0) return 1;
+
+    // Calculate total days from start (when countdown was set)
+    // For simplicity, we show progress based on remaining days out of initial days
+    const totalDays = timeLeft.days + 1; // +1 to include today
+    const maxDays = 365; // Assume max 1 year countdown for progress calculation
+
+    // Progress = time elapsed / total time
+    // We invert it: more days remaining = less progress
+    const progress = 1 - (totalDays / Math.max(totalDays, maxDays));
+    return Math.min(Math.max(progress, 0.05), 1); // Min 5% to show some progress
+  };
+
+  // Calculate hours progress within the current day (24h cycle)
+  const getHoursProgress = () => {
+    if (!data.targetDate) return 0;
+    const timeLeft = calculateTimeLeft(data.targetDate);
+    if (timeLeft.total <= 0) return 1;
+
+    // Hours remaining in current day converted to progress
+    // 24 hours = 0%, 0 hours = 100%
+    const hoursRemaining = timeLeft.hours + (timeLeft.minutes / 60) + (timeLeft.seconds / 3600);
+    const progress = 1 - (hoursRemaining / 24);
+    return Math.min(Math.max(progress, 0), 1);
   };
 
   // Calculate task completion progress
@@ -205,7 +222,11 @@ const HomeScreen: React.FC = () => {
 
                   {/* Circular Progress with Flip Clock */}
                   <View style={styles.circleContainer}>
-                    <CircularProgress progress={getProgress()} size={280} strokeWidth={6}>
+                    <CircularProgress
+                      daysProgress={getDaysProgress()}
+                      hoursProgress={getHoursProgress()}
+                      size={280}
+                    >
                       <FlipClock targetDate={data.targetDate} compact />
                     </CircularProgress>
                   </View>

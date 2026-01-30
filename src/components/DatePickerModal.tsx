@@ -28,7 +28,10 @@ const DatePickerModal: React.FC<Props> = ({
 
   const handleConfirm = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    onConfirm(selectedDate);
+    // Set time to 00:00:00 (midnight) for the selected date
+    const dateAtMidnight = new Date(selectedDate);
+    dateAtMidnight.setHours(0, 0, 0, 0);
+    onConfirm(dateAtMidnight);
   };
 
   const handleCancel = () => {

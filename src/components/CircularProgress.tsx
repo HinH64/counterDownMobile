@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import Animated, {
   useAnimatedProps,
@@ -10,26 +10,45 @@ import Animated, {
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface Props {
-  progress: number; // 0 to 1
+  daysProgress: number;    // 0 to 1 - overall days progress
+  hoursProgress: number;   // 0 to 1 - current day hours progress (24h cycle)
   size?: number;
-  strokeWidth?: number;
   children?: React.ReactNode;
 }
 
 const CircularProgress: React.FC<Props> = ({
-  progress,
+  daysProgress,
+  hoursProgress,
   size = 280,
-  strokeWidth = 8,
   children,
 }) => {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
+  const outerStrokeWidth = 6;
+  const innerStrokeWidth = 4;
+  const gap = 12;
 
-  const animatedProps = useAnimatedProps(() => {
-    const strokeDashoffset = circumference * (1 - progress);
+  const outerRadius = (size - outerStrokeWidth) / 2;
+  const innerRadius = outerRadius - gap - innerStrokeWidth;
+
+  const outerCircumference = 2 * Math.PI * outerRadius;
+  const innerCircumference = 2 * Math.PI * innerRadius;
+
+  // Outer ring - days progress (purple gradient)
+  const outerAnimatedProps = useAnimatedProps(() => {
+    const strokeDashoffset = outerCircumference * (1 - daysProgress);
     return {
       strokeDashoffset: withTiming(strokeDashoffset, {
         duration: 500,
+        easing: Easing.out(Easing.ease),
+      }),
+    };
+  });
+
+  // Inner ring - hours progress (cyan/teal gradient)
+  const innerAnimatedProps = useAnimatedProps(() => {
+    const strokeDashoffset = innerCircumference * (1 - hoursProgress);
+    return {
+      strokeDashoffset: withTiming(strokeDashoffset, {
+        duration: 300,
         easing: Easing.out(Easing.ease),
       }),
     };
@@ -39,33 +58,66 @@ const CircularProgress: React.FC<Props> = ({
     <View style={[styles.container, { width: size, height: size }]}>
       <Svg width={size} height={size} style={styles.svg}>
         <Defs>
-          <LinearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          {/* Purple gradient for days (outer) */}
+          <LinearGradient id="daysGradient" x1="0%" y1="0%" x2="100%" y2="100%">
             <Stop offset="0%" stopColor="#A855F7" />
-            <Stop offset="50%" stopColor="#6366F1" />
-            <Stop offset="100%" stopColor="#3B82F6" />
+            <Stop offset="50%" stopColor="#8B5CF6" />
+            <Stop offset="100%" stopColor="#6366F1" />
+          </LinearGradient>
+
+          {/* Cyan/Teal gradient for hours (inner) */}
+          <LinearGradient id="hoursGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#06B6D4" />
+            <Stop offset="50%" stopColor="#14B8A6" />
+            <Stop offset="100%" stopColor="#10B981" />
           </LinearGradient>
         </Defs>
 
-        {/* Background circle */}
+        {/* Outer background circle (days) */}
         <Circle
           cx={size / 2}
           cy={size / 2}
-          r={radius}
-          stroke="rgba(255, 255, 255, 0.1)"
-          strokeWidth={strokeWidth}
+          r={outerRadius}
+          stroke="rgba(168, 85, 247, 0.15)"
+          strokeWidth={outerStrokeWidth}
           fill="transparent"
         />
 
-        {/* Progress circle */}
+        {/* Outer progress circle (days) */}
         <AnimatedCircle
           cx={size / 2}
           cy={size / 2}
-          r={radius}
-          stroke="url(#gradient)"
-          strokeWidth={strokeWidth}
+          r={outerRadius}
+          stroke="url(#daysGradient)"
+          strokeWidth={outerStrokeWidth}
           fill="transparent"
-          strokeDasharray={circumference}
-          animatedProps={animatedProps}
+          strokeDasharray={outerCircumference}
+          animatedProps={outerAnimatedProps}
+          strokeLinecap="round"
+          rotation="-90"
+          origin={`${size / 2}, ${size / 2}`}
+        />
+
+        {/* Inner background circle (hours) */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={innerRadius}
+          stroke="rgba(6, 182, 212, 0.12)"
+          strokeWidth={innerStrokeWidth}
+          fill="transparent"
+        />
+
+        {/* Inner progress circle (hours) */}
+        <AnimatedCircle
+          cx={size / 2}
+          cy={size / 2}
+          r={innerRadius}
+          stroke="url(#hoursGradient)"
+          strokeWidth={innerStrokeWidth}
+          fill="transparent"
+          strokeDasharray={innerCircumference}
+          animatedProps={innerAnimatedProps}
           strokeLinecap="round"
           rotation="-90"
           origin={`${size / 2}, ${size / 2}`}
