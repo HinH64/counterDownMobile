@@ -225,6 +225,7 @@ const HomeScreen: React.FC = () => {
                     <CircularProgress
                       daysProgress={getDaysProgress()}
                       hoursProgress={getHoursProgress()}
+                      daysRemaining={calculateTimeLeft(data.targetDate).days}
                       size={280}
                     >
                       <FlipClock targetDate={data.targetDate} compact />
