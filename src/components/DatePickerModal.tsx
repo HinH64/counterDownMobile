@@ -66,7 +66,7 @@ const DatePickerModal: React.FC<Props> = ({
           <View style={styles.pickerContainer}>
             <DateTimePicker
               value={selectedDate}
-              mode="datetime"
+              mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={(event, date) => {
                 if (date) {

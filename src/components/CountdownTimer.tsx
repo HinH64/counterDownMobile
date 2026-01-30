@@ -19,10 +19,9 @@ interface Props {
 interface TimeUnitProps {
   value: number;
   label: string;
-  index: number;
 }
 
-const TimeUnit: React.FC<TimeUnitProps> = ({ value, label, index }) => {
+const TimeUnit: React.FC<TimeUnitProps> = ({ value, label }) => {
   const scale = useSharedValue(1);
   const previousValue = React.useRef(value);
 
@@ -70,7 +69,7 @@ const CountdownTimer: React.FC<Props> = ({ targetDate }) => {
   if (timeLeft.total <= 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.completedText}>Time's Up!</Text>
+        <Text style={styles.completedText}>The Day Has Arrived!</Text>
       </View>
     );
   }
@@ -78,13 +77,13 @@ const CountdownTimer: React.FC<Props> = ({ targetDate }) => {
   return (
     <View style={styles.container}>
       <View style={styles.timerRow}>
-        <TimeUnit value={timeLeft.days} label="Days" index={0} />
+        <TimeUnit value={timeLeft.days} label="Days" />
         <Text style={styles.separator}>:</Text>
-        <TimeUnit value={timeLeft.hours} label="Hours" index={1} />
+        <TimeUnit value={timeLeft.hours} label="Hours" />
         <Text style={styles.separator}>:</Text>
-        <TimeUnit value={timeLeft.minutes} label="Mins" index={2} />
+        <TimeUnit value={timeLeft.minutes} label="Mins" />
         <Text style={styles.separator}>:</Text>
-        <TimeUnit value={timeLeft.seconds} label="Secs" index={3} />
+        <TimeUnit value={timeLeft.seconds} label="Secs" />
       </View>
     </View>
   );
@@ -134,9 +133,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   completedText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
     color: '#FFFFFF',
+    textAlign: 'center',
   },
 });
 
