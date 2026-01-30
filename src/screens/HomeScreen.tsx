@@ -17,23 +17,33 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  useAnimatedScrollHandler,
-  interpolate,
-  Extrapolate,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import FlipClock from '../components/FlipClock';
 import TodoList from '../components/TodoList';
 import DatePickerModal from '../components/DatePickerModal';
+import CircularProgress from '../components/CircularProgress';
 import PageIndicator from '../components/PageIndicator';
 import { CountdownData, Todo } from '../types';
 import { saveData, loadData } from '../utils/storage';
-import { formatDate } from '../utils/time';
+import { formatDate, calculateTimeLeft } from '../utils/time';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+
+// Theme colors - Purple/Blue gradient
+const COLORS = {
+  primary: '#8B5CF6',      // Purple
+  secondary: '#6366F1',    // Indigo
+  accent: '#A78BFA',       // Light purple
+  background: ['#0f0a1f', '#1a1033', '#0d1528'] as const,
+  cardBg: 'rgba(139, 92, 246, 0.1)',
+  text: '#FFFFFF',
+  textSecondary: 'rgba(255, 255, 255, 0.6)',
+  danger: '#EF4444',
+};
 
 const HomeScreen: React.FC = () => {
   const [data, setData] = useState<CountdownData>({
@@ -112,9 +122,29 @@ const HomeScreen: React.FC = () => {
     transform: [{ scale: buttonScale.value }],
   }));
 
+  // Calculate progress based on time elapsed
+  const getProgress = () => {
+    if (!data.targetDate) return 0;
+    const now = Date.now();
+    const total = data.targetDate - now;
+    if (total <= 0) return 1;
+    // Assume countdown started 30 days before target (or use actual start date)
+    const startDate = data.targetDate - (30 * 24 * 60 * 60 * 1000);
+    const elapsed = now - startDate;
+    const totalDuration = data.targetDate - startDate;
+    return Math.min(Math.max(elapsed / totalDuration, 0), 1);
+  };
+
+  // Calculate task completion progress
+  const getTaskProgress = () => {
+    if (data.todos.length === 0) return 0;
+    const completed = data.todos.filter(t => t.completed).length;
+    return completed / data.todos.length;
+  };
+
   if (isLoading) {
     return (
-      <LinearGradient colors={['#0f0f1a', '#1a1a2e', '#16213e']} style={styles.gradient}>
+      <LinearGradient colors={[...COLORS.background]} style={styles.gradient}>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
@@ -123,7 +153,7 @@ const HomeScreen: React.FC = () => {
   }
 
   return (
-    <LinearGradient colors={['#0f0f1a', '#1a1a2e', '#16213e']} style={styles.gradient}>
+    <LinearGradient colors={[...COLORS.background]} style={styles.gradient}>
       <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.safeArea}>
         {data.targetDate ? (
@@ -146,6 +176,9 @@ const HomeScreen: React.FC = () => {
               {/* Page 1: Countdown */}
               <View style={styles.page}>
                 <View style={styles.countdownPage}>
+                  {/* Goal Label */}
+                  <Text style={styles.goalLabel}>CURRENT GOAL</Text>
+
                   {/* Title */}
                   <TouchableOpacity
                     onPress={() => setIsEditingTitle(true)}
@@ -170,27 +203,41 @@ const HomeScreen: React.FC = () => {
                     )}
                   </TouchableOpacity>
 
-                  {/* Flip Clock */}
-                  <View style={styles.clockContainer}>
-                    <FlipClock targetDate={data.targetDate} />
+                  {/* Circular Progress with Flip Clock */}
+                  <View style={styles.circleContainer}>
+                    <CircularProgress progress={getProgress()} size={280} strokeWidth={6}>
+                      <FlipClock targetDate={data.targetDate} compact />
+                    </CircularProgress>
                   </View>
 
-                  {/* Target Date */}
+                  {/* Task Progress Bar */}
+                  <View style={styles.progressSection}>
+                    <View style={styles.progressHeader}>
+                      <Text style={styles.progressLabel}>Task Progress</Text>
+                      <Text style={styles.progressPercent}>
+                        {Math.round(getTaskProgress() * 100)}%
+                      </Text>
+                    </View>
+                    <View style={styles.progressBarBg}>
+                      <View
+                        style={[
+                          styles.progressBarFill,
+                          { width: `${getTaskProgress() * 100}%` },
+                        ]}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Target Date Button */}
                   <TouchableOpacity
                     style={styles.dateButton}
                     onPress={() => setShowDatePicker(true)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.8}
                   >
-                    <Text style={styles.dateLabel}>TARGET DATE</Text>
-                    <Text style={styles.dateText}>
+                    <Text style={styles.dateButtonText}>
                       {formatDate(data.targetDate)}
                     </Text>
                   </TouchableOpacity>
-
-                  {/* Swipe hint */}
-                  <View style={styles.swipeHint}>
-                    <Text style={styles.swipeHintText}>Swipe left for tasks →</Text>
-                  </View>
 
                   {/* Reset Button */}
                   <TouchableOpacity
@@ -198,14 +245,23 @@ const HomeScreen: React.FC = () => {
                     onPress={handleReset}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.resetButtonText}>Reset</Text>
+                    <Text style={styles.resetButtonText}>Reset Timer</Text>
                   </TouchableOpacity>
+
+                  {/* Swipe hint */}
+                  <Text style={styles.swipeHint}>Swipe left for tasks →</Text>
                 </View>
               </View>
 
               {/* Page 2: Tasks */}
               <View style={styles.page}>
                 <View style={styles.tasksPage}>
+                  <View style={styles.tasksHeader}>
+                    <Text style={styles.tasksTitle}>Tasks</Text>
+                    <Text style={styles.tasksSubtitle}>
+                      {data.todos.filter(t => t.completed).length} of {data.todos.length} completed
+                    </Text>
+                  </View>
                   <TodoList
                     todos={data.todos}
                     onAddTodo={handleAddTodo}
@@ -238,7 +294,14 @@ const HomeScreen: React.FC = () => {
               }}
               activeOpacity={0.9}
             >
-              <Text style={styles.setDateButtonText}>Set Target Date</Text>
+              <LinearGradient
+                colors={[COLORS.primary, COLORS.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.buttonGradient}
+              >
+                <Text style={styles.setDateButtonText}>Set Target Date</Text>
+              </LinearGradient>
             </AnimatedTouchable>
           </View>
         )}
@@ -269,7 +332,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: COLORS.textSecondary,
   },
   indicatorContainer: {
     paddingTop: 10,
@@ -282,74 +345,114 @@ const styles = StyleSheet.create({
   },
   countdownPage: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     alignItems: 'center',
   },
+  goalLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.primary,
+    letterSpacing: 2,
+    marginTop: 10,
+  },
   titleContainer: {
-    paddingVertical: 20,
+    paddingVertical: 8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '700',
+    color: COLORS.text,
     textAlign: 'center',
   },
   titleInput: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '700',
+    color: COLORS.text,
     textAlign: 'center',
     borderBottomWidth: 2,
-    borderBottomColor: '#007AFF',
+    borderBottomColor: COLORS.primary,
     paddingBottom: 4,
     minWidth: 200,
   },
-  clockContainer: {
-    marginVertical: 30,
+  circleContainer: {
+    marginVertical: 24,
+  },
+  progressSection: {
+    width: '100%',
+    marginVertical: 16,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  progressPercent: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  progressBarBg: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 3,
   },
   dateButton: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginTop: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    backgroundColor: COLORS.cardBg,
     borderRadius: 12,
-    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.3)',
   },
-  dateLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.5)',
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
-  dateText: {
-    fontSize: 16,
-    color: '#FFFFFF',
+  dateButtonText: {
+    fontSize: 15,
+    color: COLORS.text,
     fontWeight: '500',
   },
-  swipeHint: {
-    marginTop: 40,
-    opacity: 0.5,
-  },
-  swipeHintText: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.6)',
-  },
   resetButton: {
-    position: 'absolute',
-    bottom: 30,
-    paddingHorizontal: 24,
+    marginTop: 16,
     paddingVertical: 12,
+    paddingHorizontal: 24,
   },
   resetButtonText: {
     fontSize: 14,
-    color: 'rgba(255, 59, 48, 0.8)',
-    fontWeight: '600',
+    color: COLORS.danger,
+    fontWeight: '500',
+  },
+  swipeHint: {
+    position: 'absolute',
+    bottom: 30,
+    fontSize: 13,
+    color: COLORS.textSecondary,
   },
   tasksPage: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 10,
+  },
+  tasksHeader: {
+    paddingVertical: 16,
+  },
+  tasksTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  tasksSubtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginTop: 4,
   },
   welcomeContainer: {
     flex: 1,
@@ -360,30 +463,32 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 42,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: COLORS.text,
     marginBottom: 12,
   },
   welcomeSubtitle: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: 40,
   },
   setDateButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
     borderRadius: 16,
-    shadowColor: '#007AFF',
+    overflow: 'hidden',
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 12,
     elevation: 8,
+  },
+  buttonGradient: {
+    paddingHorizontal: 36,
+    paddingVertical: 18,
   },
   setDateButtonText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: COLORS.text,
   },
 });
 

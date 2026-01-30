@@ -1,34 +1,30 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSequence,
   Easing,
   interpolate,
-  runOnJS,
 } from 'react-native-reanimated';
 import { TimeLeft } from '../types';
 import { calculateTimeLeft } from '../utils/time';
 
 interface Props {
   targetDate: number;
+  compact?: boolean;
 }
 
 interface FlipCardProps {
   value: string;
   label: string;
+  compact?: boolean;
 }
 
-const FlipCard: React.FC<FlipCardProps> = ({ value, label }) => {
+const FlipCard: React.FC<FlipCardProps> = ({ value, label, compact }) => {
   const [displayValue, setDisplayValue] = useState(value);
   const [nextValue, setNextValue] = useState(value);
   const flipAnimation = useSharedValue(0);
-
-  const updateDisplay = useCallback(() => {
-    setDisplayValue(nextValue);
-  }, [nextValue]);
 
   useEffect(() => {
     if (value !== displayValue) {
@@ -39,7 +35,6 @@ const FlipCard: React.FC<FlipCardProps> = ({ value, label }) => {
         easing: Easing.inOut(Easing.ease),
       });
 
-      // Update display value halfway through animation
       const timeout = setTimeout(() => {
         setDisplayValue(value);
       }, 150);
@@ -48,7 +43,6 @@ const FlipCard: React.FC<FlipCardProps> = ({ value, label }) => {
     }
   }, [value]);
 
-  // Top flap (flips down, shows old value then hides)
   const topFlapStyle = useAnimatedStyle(() => {
     const rotateX = interpolate(
       flipAnimation.value,
@@ -61,15 +55,11 @@ const FlipCard: React.FC<FlipCardProps> = ({ value, label }) => {
       [1, 1, 0, 0]
     );
     return {
-      transform: [
-        { perspective: 400 },
-        { rotateX: `${rotateX}deg` },
-      ],
+      transform: [{ perspective: 300 }, { rotateX: `${rotateX}deg` }],
       opacity,
     };
   });
 
-  // Bottom flap (flips down from top, shows new value)
   const bottomFlapStyle = useAnimatedStyle(() => {
     const rotateX = interpolate(
       flipAnimation.value,
@@ -82,60 +72,56 @@ const FlipCard: React.FC<FlipCardProps> = ({ value, label }) => {
       [0, 0, 1, 1]
     );
     return {
-      transform: [
-        { perspective: 400 },
-        { rotateX: `${rotateX}deg` },
-      ],
+      transform: [{ perspective: 300 }, { rotateX: `${rotateX}deg` }],
       opacity,
     };
   });
 
+  const cardWidth = compact ? 44 : 68;
+  const cardHeight = compact ? 54 : 85;
+  const halfHeight = cardHeight / 2;
+  const fontSize = compact ? 28 : 46;
+
   return (
     <View style={styles.flipCardContainer}>
-      <View style={styles.flipCard}>
-        {/* Static top half - shows current display value */}
-        <View style={styles.cardTop}>
-          <View style={styles.cardTopInner}>
-            <Text style={styles.cardValue}>{displayValue}</Text>
+      <View style={[styles.flipCard, { width: cardWidth, height: cardHeight }]}>
+        {/* Static top half */}
+        <View style={[styles.cardTop, { height: halfHeight }]}>
+          <View style={[styles.cardTopInner, { height: cardHeight }]}>
+            <Text style={[styles.cardValue, { fontSize }]}>{displayValue}</Text>
           </View>
         </View>
 
-        {/* Static bottom half - shows next value */}
-        <View style={styles.cardBottom}>
-          <View style={styles.cardBottomInner}>
-            <Text style={styles.cardValue}>{nextValue}</Text>
+        {/* Static bottom half */}
+        <View style={[styles.cardBottom, { height: halfHeight }]}>
+          <View style={[styles.cardBottomInner, { height: cardHeight }]}>
+            <Text style={[styles.cardValue, { fontSize }]}>{nextValue}</Text>
           </View>
         </View>
 
-        {/* Animated top flap - flips down showing old value */}
-        <Animated.View style={[styles.flipTop, topFlapStyle]}>
-          <View style={styles.flipTopInner}>
-            <Text style={styles.cardValue}>{displayValue}</Text>
+        {/* Animated top flap */}
+        <Animated.View style={[styles.flipTop, { height: halfHeight }, topFlapStyle]}>
+          <View style={[styles.flipTopInner, { height: cardHeight }]}>
+            <Text style={[styles.cardValue, { fontSize }]}>{displayValue}</Text>
           </View>
         </Animated.View>
 
-        {/* Animated bottom flap - flips down showing new value */}
-        <Animated.View style={[styles.flipBottom, bottomFlapStyle]}>
-          <View style={styles.flipBottomInner}>
-            <Text style={styles.cardValue}>{nextValue}</Text>
+        {/* Animated bottom flap */}
+        <Animated.View style={[styles.flipBottom, { top: halfHeight, height: halfHeight }, bottomFlapStyle]}>
+          <View style={[styles.flipBottomInner, { top: -halfHeight, height: cardHeight }]}>
+            <Text style={[styles.cardValue, { fontSize }]}>{nextValue}</Text>
           </View>
         </Animated.View>
 
         {/* Center divider */}
-        <View style={styles.cardDivider} />
-
-        {/* Corner screws decoration */}
-        <View style={[styles.screw, styles.screwTopLeft]} />
-        <View style={[styles.screw, styles.screwTopRight]} />
-        <View style={[styles.screw, styles.screwBottomLeft]} />
-        <View style={[styles.screw, styles.screwBottomRight]} />
+        <View style={[styles.cardDivider, { top: halfHeight - 1 }]} />
       </View>
-      <Text style={styles.cardLabel}>{label}</Text>
+      {!compact && <Text style={styles.cardLabel}>{label}</Text>}
     </View>
   );
 };
 
-const FlipClock: React.FC<Props> = ({ targetDate }) => {
+const FlipClock: React.FC<Props> = ({ targetDate, compact = false }) => {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>(calculateTimeLeft(targetDate));
 
   useEffect(() => {
@@ -149,12 +135,33 @@ const FlipClock: React.FC<Props> = ({ targetDate }) => {
   if (timeLeft.total <= 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.completedText}>The Day Has Arrived!</Text>
+        <Text style={styles.completedText}>Done!</Text>
       </View>
     );
   }
 
   const formatValue = (val: number) => String(val).padStart(2, '0');
+
+  if (compact) {
+    return (
+      <View style={styles.compactContainer}>
+        {/* Days - shown big at top */}
+        <View style={styles.daysSection}>
+          <Text style={styles.daysValue}>{timeLeft.days}</Text>
+          <Text style={styles.daysLabel}>DAYS</Text>
+        </View>
+
+        {/* Hours : Minutes : Seconds */}
+        <View style={styles.timeRow}>
+          <FlipCard value={formatValue(timeLeft.hours)} label="H" compact />
+          <Text style={styles.compactSeparator}>:</Text>
+          <FlipCard value={formatValue(timeLeft.minutes)} label="M" compact />
+          <Text style={styles.compactSeparator}>:</Text>
+          <FlipCard value={formatValue(timeLeft.seconds)} label="S" compact />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -180,46 +187,65 @@ const FlipClock: React.FC<Props> = ({ targetDate }) => {
   );
 };
 
-const CARD_WIDTH = 68;
-const CARD_HEIGHT = 85;
-const HALF_HEIGHT = CARD_HEIGHT / 2;
-
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     paddingVertical: 20,
+  },
+  compactContainer: {
+    alignItems: 'center',
+  },
+  daysSection: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  daysValue: {
+    fontSize: 56,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontVariant: ['tabular-nums'],
+    lineHeight: 64,
+  },
+  daysLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.5)',
+    letterSpacing: 3,
+    marginTop: 2,
   },
   clockRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
   flipCardContainer: {
     alignItems: 'center',
-    marginHorizontal: 3,
+    marginHorizontal: 2,
   },
   flipCard: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
-    borderRadius: 8,
-    backgroundColor: '#1a1a1a',
+    borderRadius: 6,
+    backgroundColor: '#1a1a2e',
     position: 'relative',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
   },
-  // Static top half
   cardTop: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: HALF_HEIGHT,
-    backgroundColor: '#2d2d2d',
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    backgroundColor: '#252542',
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
     overflow: 'hidden',
   },
   cardTopInner: {
@@ -227,20 +253,17 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: CARD_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Static bottom half
   cardBottom: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: HALF_HEIGHT,
-    backgroundColor: '#222222',
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
+    backgroundColor: '#1e1e38',
+    borderBottomLeftRadius: 6,
+    borderBottomRightRadius: 6,
     overflow: 'hidden',
   },
   cardBottomInner: {
@@ -248,96 +271,59 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: CARD_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Animated top flap (flips down)
   flipTop: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: HALF_HEIGHT,
-    backgroundColor: '#2d2d2d',
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    backgroundColor: '#252542',
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
     overflow: 'hidden',
     zIndex: 10,
     backfaceVisibility: 'hidden',
-    transformOrigin: 'bottom',
   },
   flipTopInner: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: CARD_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Animated bottom flap (comes from top)
   flipBottom: {
     position: 'absolute',
-    top: HALF_HEIGHT,
     left: 0,
     right: 0,
-    height: HALF_HEIGHT,
-    backgroundColor: '#222222',
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
+    backgroundColor: '#1e1e38',
+    borderBottomLeftRadius: 6,
+    borderBottomRightRadius: 6,
     overflow: 'hidden',
     zIndex: 10,
     backfaceVisibility: 'hidden',
-    transformOrigin: 'top',
   },
   flipBottomInner: {
     position: 'absolute',
-    top: -HALF_HEIGHT,
     left: 0,
     right: 0,
-    height: CARD_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
   },
   cardValue: {
-    fontSize: 46,
     fontWeight: '700',
     color: '#FFFFFF',
     fontVariant: ['tabular-nums'],
   },
   cardDivider: {
     position: 'absolute',
-    top: HALF_HEIGHT - 1,
     left: 0,
     right: 0,
     height: 2,
-    backgroundColor: '#111111',
+    backgroundColor: '#0f0f1a',
     zIndex: 20,
-  },
-  screw: {
-    position: 'absolute',
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#444444',
-    zIndex: 30,
-  },
-  screwTopLeft: {
-    top: 4,
-    left: 4,
-  },
-  screwTopRight: {
-    top: 4,
-    right: 4,
-  },
-  screwBottomLeft: {
-    bottom: 4,
-    left: 4,
-  },
-  screwBottomRight: {
-    bottom: 4,
-    right: 4,
   },
   cardLabel: {
     fontSize: 10,
@@ -347,7 +333,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   separator: {
-    height: CARD_HEIGHT,
+    height: 85,
     justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 4,
@@ -358,6 +344,13 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  compactSeparator: {
+    fontSize: 22,
+    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.4)',
+    marginHorizontal: 2,
+    marginBottom: 4,
   },
   completedText: {
     fontSize: 28,
