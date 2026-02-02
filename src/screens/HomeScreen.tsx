@@ -24,9 +24,10 @@ import TodoList from '../components/TodoList';
 import DatePickerModal from '../components/DatePickerModal';
 import CircularProgress from '../components/CircularProgress';
 import PageIndicator from '../components/PageIndicator';
-import { CountdownData, Todo } from '../types';
+import { CountdownData, Todo, TaskColor, TASK_COLORS } from '../types';
 import { saveData, loadData } from '../utils/storage';
 import { formatDate, calculateTimeLeft } from '../utils/time';
+import { TaskMarker } from '../components/CircularProgress';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -107,6 +108,15 @@ const HomeScreen: React.FC = () => {
     }));
   };
 
+  const handleUpdateTodoDate = (id: string, date: number | null, color: TaskColor) => {
+    setData((prev) => ({
+      ...prev,
+      todos: prev.todos.map((todo) =>
+        todo.id === id ? { ...todo, dueDate: date, color } : todo
+      ),
+    }));
+  };
+
   const handleReset = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setData({ targetDate: null, title: '', todos: [] });
@@ -157,6 +167,44 @@ const HomeScreen: React.FC = () => {
     if (data.todos.length === 0) return 0;
     const completed = data.todos.filter(t => t.completed).length;
     return completed / data.todos.length;
+  };
+
+  // Generate task markers for the circular progress
+  const getTaskMarkers = (): TaskMarker[] => {
+    if (!data.targetDate) return [];
+
+    const now = Date.now();
+    const totalDuration = data.targetDate - now;
+
+    // Only include todos that have due dates
+    return data.todos
+      .filter((todo) => todo.dueDate)
+      .map((todo) => {
+        // Calculate position based on how far the due date is from now relative to target
+        const timeUntilDue = todo.dueDate! - now;
+        // Position: 0 = now (top of circle), 1 = target date
+        // We want tasks due soon to be near the progress line
+        const position = Math.max(0, Math.min(1, timeUntilDue / totalDuration));
+
+        return {
+          id: todo.id,
+          position,
+          color: todo.color || TASK_COLORS[0],
+          completed: todo.completed,
+        };
+      });
+  };
+
+  // Get tasks for a specific date (for showing in countdown page)
+  const getTodaysTasks = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStart = today.getTime();
+    const todayEnd = todayStart + 24 * 60 * 60 * 1000;
+
+    return data.todos.filter(
+      (todo) => todo.dueDate && todo.dueDate >= todayStart && todo.dueDate < todayEnd
+    );
   };
 
   if (isLoading) {
@@ -227,10 +275,45 @@ const HomeScreen: React.FC = () => {
                       hoursProgress={getHoursProgress()}
                       daysRemaining={calculateTimeLeft(data.targetDate).days}
                       size={280}
+                      taskMarkers={getTaskMarkers()}
                     >
                       <FlipClock targetDate={data.targetDate} compact />
                     </CircularProgress>
                   </View>
+
+                  {/* Today's tasks indicator */}
+                  {getTodaysTasks().length > 0 && (
+                    <View style={styles.todayTasksContainer}>
+                      <Text style={styles.todayTasksLabel}>Today's Tasks</Text>
+                      <View style={styles.todayTasksList}>
+                        {getTodaysTasks().slice(0, 3).map((task) => (
+                          <View
+                            key={task.id}
+                            style={[
+                              styles.todayTaskItem,
+                              { borderLeftColor: task.color || TASK_COLORS[0] },
+                              task.completed && styles.todayTaskItemCompleted,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.todayTaskText,
+                                task.completed && styles.todayTaskTextCompleted,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {task.text}
+                            </Text>
+                          </View>
+                        ))}
+                        {getTodaysTasks().length > 3 && (
+                          <Text style={styles.todayTasksMore}>
+                            +{getTodaysTasks().length - 3} more
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  )}
 
                   {/* Task Progress Bar */}
                   <View style={styles.progressSection}>
@@ -289,6 +372,8 @@ const HomeScreen: React.FC = () => {
                     onAddTodo={handleAddTodo}
                     onToggleTodo={handleToggleTodo}
                     onDeleteTodo={handleDeleteTodo}
+                    onUpdateTodoDate={handleUpdateTodoDate}
+                    targetDate={data.targetDate}
                   />
                 </View>
               </View>
@@ -511,6 +596,46 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.text,
+  },
+  // Today's tasks styles
+  todayTasksContainer: {
+    width: '100%',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  todayTasksLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  todayTasksList: {
+    gap: 6,
+  },
+  todayTaskItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+  },
+  todayTaskItemCompleted: {
+    opacity: 0.5,
+  },
+  todayTaskText: {
+    fontSize: 13,
+    color: COLORS.text,
+  },
+  todayTaskTextCompleted: {
+    textDecorationLine: 'line-through',
+    color: COLORS.textSecondary,
+  },
+  todayTasksMore: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
   },
 });
 

@@ -16,7 +16,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Todo } from '../types';
+import { Todo, TaskColor } from '../types';
 import { generateId } from '../utils/time';
 import TodoItem from './TodoItem';
 
@@ -25,6 +25,8 @@ interface Props {
   onAddTodo: (todo: Todo) => void;
   onToggleTodo: (id: string) => void;
   onDeleteTodo: (id: string) => void;
+  onUpdateTodoDate: (id: string, date: number | null, color: TaskColor) => void;
+  targetDate?: number | null;
 }
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -34,6 +36,8 @@ const TodoList: React.FC<Props> = ({
   onAddTodo,
   onToggleTodo,
   onDeleteTodo,
+  onUpdateTodoDate,
+  targetDate,
 }) => {
   const [inputText, setInputText] = useState('');
   const buttonScale = useSharedValue(1);
@@ -133,6 +137,8 @@ const TodoList: React.FC<Props> = ({
               todo={todo}
               onToggle={onToggleTodo}
               onDelete={onDeleteTodo}
+              onUpdateDate={onUpdateTodoDate}
+              targetDate={targetDate}
             />
           ))
         )}

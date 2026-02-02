@@ -5,7 +5,8 @@
       "Bash(npm install:*)",
       "Bash(npx expo start:*)",
       "Bash(npx expo-doctor)",
-      "Bash(npx expo install:*)"
+      "Bash(npx expo install:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

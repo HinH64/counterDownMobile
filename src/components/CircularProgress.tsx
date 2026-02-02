@@ -10,8 +10,16 @@ import Animated, {
   withSequence,
   Easing,
 } from 'react-native-reanimated';
+import { TaskColor } from '../types';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+export interface TaskMarker {
+  id: string;
+  position: number;  // 0 to 1 - position on the circle (based on date)
+  color: TaskColor;
+  completed: boolean;
+}
 
 interface Props {
   daysProgress: number;    // 0 to 1 - overall days progress
@@ -19,6 +27,7 @@ interface Props {
   daysRemaining?: number;  // Number of days remaining (0 triggers effect)
   size?: number;
   children?: React.ReactNode;
+  taskMarkers?: TaskMarker[];  // Task markers to display on outer ring
 }
 
 const CircularProgress: React.FC<Props> = ({
@@ -27,6 +36,7 @@ const CircularProgress: React.FC<Props> = ({
   daysRemaining = -1,
   size = 280,
   children,
+  taskMarkers = [],
 }) => {
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0);
@@ -189,6 +199,29 @@ const CircularProgress: React.FC<Props> = ({
             rotation="-90"
             origin={`${size / 2}, ${size / 2}`}
           />
+
+          {/* Task markers on outer ring */}
+          {taskMarkers.map((marker) => {
+            // Convert position (0-1) to angle, starting from top (-90 degrees)
+            const angle = (marker.position * 360 - 90) * (Math.PI / 180);
+            const markerRadius = outerRadius;
+            const cx = size / 2 + markerRadius * Math.cos(angle);
+            const cy = size / 2 + markerRadius * Math.sin(angle);
+            const markerSize = marker.completed ? 6 : 10;
+
+            return (
+              <Circle
+                key={marker.id}
+                cx={cx}
+                cy={cy}
+                r={markerSize}
+                fill={marker.color}
+                opacity={marker.completed ? 0.5 : 1}
+                stroke={marker.completed ? 'transparent' : '#FFFFFF'}
+                strokeWidth={marker.completed ? 0 : 2}
+              />
+            );
+          })}
         </Svg>
       </Animated.View>
 
